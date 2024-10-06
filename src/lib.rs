@@ -1,50 +1,42 @@
-// Setup ToF64 as a custom trait
-trait ToF64 {
+pub trait FlexInput {
     fn to_f64(self) -> f64;
 }
 
-// implement trait for usize or f64 user entries
-impl ToF64 for usize {
+impl FlexInput for usize {
     fn to_f64(self) -> f64 {
         self as f64
     }
 }
-impl ToF64 for f64 {
+impl FlexInput for f64 {
     fn to_f64(self) -> f64 {
         self
     }
 }
 
-// Now our convert_float function can accept any type that implements ToF64
-fn convert_float<T: ToF64>(value: T) -> f64 {
-    value.to_f64()
-}
-
-// Public facing functions for calc use and impleted user input generics for backend use.
-pub fn add<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
-    let conv_left = convert_float(left);
-    let conv_right = convert_float(right);
+pub fn add<T: FlexInput, U: FlexInput>(left: T, right: U) -> f64 {
+    let conv_left = left.to_f64();
+    let conv_right = right.to_f64();
 
     conv_left + conv_right
 }
 
-pub fn subtract<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
-    let conv_left = convert_float(left);
-    let conv_right = convert_float(right);
+pub fn subtract<T: FlexInput, U: FlexInput>(left: T, right: U) -> f64 {
+    let conv_left = left.to_f64();
+    let conv_right = right.to_f64();
 
     conv_left - conv_right
 }
 
-pub fn multiply<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
-    let conv_left = convert_float(left);
-    let conv_right = convert_float(right);
+pub fn multiply<T: FlexInput, U: FlexInput>(left: T, right: U) -> f64 {
+    let conv_left = left.to_f64();
+    let conv_right = right.to_f64();
 
     conv_left * conv_right
 }
 
-pub fn divide<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
-    let conv_left = convert_float(left);
-    let conv_right = convert_float(right);
+pub fn divide<T: FlexInput, U: FlexInput>(left: T, right: U) -> f64 {
+    let conv_left = left.to_f64();
+    let conv_right = right.to_f64();
 
     conv_left / conv_right
 }
