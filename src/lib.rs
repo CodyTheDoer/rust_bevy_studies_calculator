@@ -1,23 +1,50 @@
-fn into_float(arg: usize) -> f64 {
-    let converted_float = arg as f64;
-    converted_float
+// Setup ToF64 as a custom trait
+trait ToF64 {
+    fn to_f64(self) -> f64;
 }
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+// implement trait for usize or f64 user entries
+impl ToF64 for usize {
+    fn to_f64(self) -> f64 {
+        self as f64
+    }
+}
+impl ToF64 for f64 {
+    fn to_f64(self) -> f64 {
+        self
+    }
 }
 
-pub fn subtract(left: usize, right: usize) -> usize {
-    left - right
+// Now our convert_float function can accept any type that implements ToF64
+fn convert_float<T: ToF64>(value: T) -> f64 {
+    value.to_f64()
 }
 
-pub fn multiply(left: usize, right: usize) -> usize {
-    left * right
+// Public facing functions for calc use and impleted user input generics for backend use.
+pub fn add<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
+    let conv_left = convert_float(left);
+    let conv_right = convert_float(right);
+
+    conv_left + conv_right
 }
 
-pub fn divide(left: usize, right: usize) -> f64 {
-    let conv_left = into_float(left);
-    let conv_right = into_float(right);
+pub fn subtract<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
+    let conv_left = convert_float(left);
+    let conv_right = convert_float(right);
+
+    conv_left - conv_right
+}
+
+pub fn multiply<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
+    let conv_left = convert_float(left);
+    let conv_right = convert_float(right);
+
+    conv_left * conv_right
+}
+
+pub fn divide<T: ToF64, U: ToF64>(left: T, right: U) -> f64 {
+    let conv_left = convert_float(left);
+    let conv_right = convert_float(right);
 
     conv_left / conv_right
 }
@@ -28,52 +55,29 @@ mod calc_backend_functionality {
 
     #[test]
     fn add_check() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-
-        let result = add(12, 12);
-        assert_eq!(result, 24);
-
-        let result = add(24, 2);
-        assert_eq!(result, 26);
+        assert_eq!(add(2, 2), 4.0);
+        assert_eq!(add(12.0, 12), 24.0);
+        assert_eq!(add(24.0, 2.0), 26.0);
     }
 
     #[test]
     fn subtract_check() {
-        let result = subtract(2, 2);
-        assert_eq!(result, 0);
-        
-        let result = subtract(12, 12);
-        assert_eq!(result, 0);
-        
-        let result = subtract(24, 2);
-        assert_eq!(result, 22);
+        assert_eq!(subtract(2, 2), 0.0);
+        assert_eq!(subtract(12.0, 12), 0.0);
+        assert_eq!(subtract(24.0, 2.0), 22.0);
     }
 
     #[test]
     fn multiply_check() {
-        let result = multiply(2, 2);
-        assert_eq!(result, 4);
-
-        let result = multiply(12, 12);
-        assert_eq!(result, 144);
-
-        let result = multiply(24, 2);
-        assert_eq!(result, 48);
+        assert_eq!(multiply(2, 2), 4.0);
+        assert_eq!(multiply(12.0, 12), 144.0);
+        assert_eq!(multiply(24.0, 2.0), 48.0);
     }
 
     #[test]
     fn divide_check() {
-        let result = divide(2, 2);
-        assert_eq!(result, 1.0);
-        
-        let result = divide(12, 12);
-        assert_eq!(result, 1.0);
-        
-        let result = divide(24, 2);
-        assert_eq!(result, 12.0);
-        
-        // let result = divide(22.5, 2);
-        // assert_eq!(result, 11.25);
+        assert_eq!(divide(2, 2), 1.0);
+        assert_eq!(divide(12.0, 12), 1.0);
+        assert_eq!(divide(24, 2.0), 12.0);
     }
 }
