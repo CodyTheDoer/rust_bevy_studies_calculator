@@ -1,8 +1,7 @@
 use std::f32::consts::*;
-use bevy::color::palettes::tailwind;
+
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
-use bevy::render::view::RenderLayers;
 use bevy::prelude::*;
 
 fn main() {
@@ -12,11 +11,10 @@ fn main() {
         .add_systems(
             Startup,
             (
+                setup_calculator_glb,
                 spawn_view_model,
-                spawn_world_model,
                 spawn_lights,
                 spawn_text,
-                setup,
                 add,
                 subtract,
                 multiply,
@@ -60,34 +58,7 @@ struct Player;
 #[derive(Debug, Component)]
 struct WorldModelCamera;
 
-/// Used implicitly by all entities without a `RenderLayers` component.
-/// Our world model camera and all objects other than the player are on this layer.
-/// The light source belongs to both layers.
-const DEFAULT_RENDER_LAYER: usize = 0;
-
-/// Used by the view model camera and the player's arm.
-/// The light source belongs to both layers.
-const VIEW_MODEL_RENDER_LAYER: usize = 1;
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
-        // This is a relatively small scene, so use tighter shadow
-        // cascade bounds than the default for better quality.
-        // We also adjusted the shadow map to be larger since we're
-        // only using a single cascade.
-        cascade_shadow_config: CascadeShadowConfigBuilder {
-            num_cascades: 1,
-            maximum_distance: 1.6,
-            ..default()
-        }
-        .into(),
-        ..default()
-    });
+fn setup_calculator_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneBundle {
         scene: asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("Calculator.glb")),
@@ -97,14 +68,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn spawn_view_model(
     mut commands: Commands,
-    // mut meshes: ResMut<Assets<Mesh>>,
-    // mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
         .spawn((
             Player,
             SpatialBundle {
-                transform: Transform::from_xyz(0.0, 1.0, 0.0),
+                transform: Transform::from_xyz(0.0, 6.0, 5.0),
                 ..default()
             },
         ))
@@ -120,74 +89,24 @@ fn spawn_view_model(
                     ..default()
                 },
             ));
-
-            // Spawn view model camera.
-            parent.spawn((
-                Camera3dBundle {
-                    camera: Camera {
-                        // Bump the order to render on top of the world model.
-                        order: 1,
-                        ..default()
-                    },
-                    projection: PerspectiveProjection {
-                        fov: 70.0_f32.to_radians(),
-                        ..default()
-                    }
-                    .into(),
-                    ..default()
-                },
-                // Only render objects belonging to the view model.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
-            ));
         });
-}
-
-fn spawn_world_model(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
-    let cube = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
-    let material = materials.add(Color::WHITE);
-
-    // The world model camera will render the floor and the cubes spawned in this system.
-    // Assigning no `RenderLayers` component defaults to layer 0.
-
-    commands.spawn(MaterialMeshBundle {
-        mesh: floor,
-        material: material.clone(),
-        ..default()
-    });
-
-    commands.spawn(MaterialMeshBundle {
-        mesh: cube.clone(),
-        material: material.clone(),
-        transform: Transform::from_xyz(0.0, 0.25, -3.0),
-        ..default()
-    });
-
-    commands.spawn(MaterialMeshBundle {
-        mesh: cube,
-        material,
-        transform: Transform::from_xyz(0.75, 1.75, 0.0),
-        ..default()
-    });
 }
 
 fn spawn_lights(mut commands: Commands) {
     commands.spawn((
-        PointLightBundle {
-            point_light: PointLight {
-                color: Color::from(tailwind::ROSE_300),
+        DirectionalLightBundle {
+            directional_light: DirectionalLight {
                 shadows_enabled: true,
                 ..default()
             },
-            transform: Transform::from_xyz(-2.0, 4.0, -0.75),
-            ..default()
+            cascade_shadow_config: CascadeShadowConfigBuilder {
+                num_cascades: 1,
+                maximum_distance: 1.6,
+                ..default()
+            }
+        .into(),
+        ..default()
         },
-        // The light source illuminates both the world model and the view model.
-        RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));
 }
 
