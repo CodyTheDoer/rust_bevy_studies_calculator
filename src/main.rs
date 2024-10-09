@@ -1,6 +1,16 @@
+/*
+To Do:
+Attach input function to camera motion
+   held right click: engage camera motion 
+   scroll wheel: zoom in or out 
+figure out button click animation
+build screen or figure out how to attach text to existing screen component in demo.
+*/
+
 use std::f32::consts::*;
 
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::{MouseMotion, MouseButton::Right};
+use bevy::input::common_conditions::*;
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 
@@ -24,7 +34,8 @@ fn main() {
         .add_systems(
             Update, 
             (
-                move_player, 
+                adjust_player_camera
+                .run_if(input_pressed(MouseButton::Right)),
                 change_fov,
                 animate_light_direction,
             ),
@@ -73,7 +84,7 @@ fn spawn_view_model(
         .spawn((
             Player,
             SpatialBundle {
-                transform: Transform::from_xyz(0.0, 6.0, 5.0),
+                transform: Transform::from_xyz(0.0, 7.0, 5.0),
                 ..default()
             },
         ))
@@ -150,7 +161,7 @@ fn animate_light_direction(
     }
 }
 
-fn move_player(
+fn adjust_player_camera(
     mut mouse_motion: EventReader<MouseMotion>,
     mut player: Query<&mut Transform, With<Player>>,
 ) {
@@ -164,10 +175,15 @@ fn move_player(
     }
 }
 
-fn change_fov(
-    input: Res<ButtonInput<KeyCode>>,
-    mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
-) {
+// fn mouse_right_button_input(
+//     buttons: Res<ButtonInput<MouseButton>>,
+// ) {
+//     if buttons.pressed(MouseButton::Right) {
+//         true
+//     }
+// }
+
+fn change_fov(input: Res<ButtonInput<KeyCode>>,mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>) {
     let mut projection = world_model_projection.single_mut();
     let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
         unreachable!(
