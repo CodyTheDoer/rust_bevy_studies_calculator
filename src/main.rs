@@ -75,7 +75,7 @@ fn adjust_player_camera(
     let mut transform = player.single_mut();
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
-        let pitch = -motion.delta.y * 0.002;
+        let pitch = motion.delta.y * 0.002;
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
         transform.rotate_local_x(pitch);
