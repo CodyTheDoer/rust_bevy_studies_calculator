@@ -9,8 +9,8 @@ build screen or figure out how to attach text to existing screen component in de
 
 use std::f32::consts::*;
 
-use bevy::input::mouse::{MouseMotion, MouseButton::Right};
 use bevy::input::common_conditions::*;
+use bevy::input::mouse::{MouseMotion, MouseButton::Right};
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 
@@ -174,14 +174,6 @@ fn adjust_player_camera(
         transform.rotate_local_x(pitch);
     }
 }
-
-// fn mouse_right_button_input(
-//     buttons: Res<ButtonInput<MouseButton>>,
-// ) {
-//     if buttons.pressed(MouseButton::Right) {
-//         true
-//     }
-// }
 
 fn change_fov(input: Res<ButtonInput<KeyCode>>,mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>) {
     let mut projection = world_model_projection.single_mut();
