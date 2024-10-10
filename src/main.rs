@@ -1,8 +1,8 @@
 /*
 To Do:
 Attach input function to camera motion
-   held right click: engage camera motion 
    scroll wheel: zoom in or out 
+Ray tracing and interface with mesh, need to pick algorithim, looking at Watertight Ray/Triangle Intersection
 figure out button click animation
 build screen or figure out how to attach text to existing screen component in demo.
 */
