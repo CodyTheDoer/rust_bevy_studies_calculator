@@ -2,7 +2,7 @@
 To Do:
 Attach input function to camera motion
    scroll wheel: zoom in or out 
-Ray tracing and interface with mesh, need to pick algorithim, looking at Watertight Ray/Triangle Intersection
+Ray tracing and interface with mesh, need to pick algorithim, looking at Watertight or possible the Möller-Trumbore algorithm
 figure out button click animation
 build screen or figure out how to attach text to existing screen component in demo.
 */
@@ -44,7 +44,18 @@ fn main() {
         .run();
 }
 
-// Calculator Functionality
+// Structs
+
+#[derive(Debug, Component)]
+struct Calculator;
+
+#[derive(Debug, Component)]
+struct Player;
+
+#[derive(Debug, Component)]
+struct WorldModelCamera;
+
+// Calculator Library Functions
 
 fn add() {
     let result = bevy_calculator::add(24, 49);
@@ -100,57 +111,139 @@ fn change_fov(input: Res<ButtonInput<KeyCode>>,mut world_model_projection: Query
     }
 }
 
+fn watertight_ray_triangle_intersection(
+    orig: Vec3,     // Ray Origin
+    dir: Vec3,      // Ray Direction
+    v0: Vec3,       // Triangle Vertex 0
+    v1: Vec3,       // Triangle Vertex 2
+    v2: Vec3,       // Triangle Vertex 3
+) -> option<(f32, f32, f32)> {
+    let kz = dir.abs().max_element_index();
+    let kx = (kz + 1) % 3;
+    let ky = (kx + 1) % 3;
+
+    // Reorder the ray direction and origin based on max 
+    let dir = dir.permute(kx, ky, kz);
+    let orig = orig.permute(kx, ky, kz);
+
+    //compute the triangle edges
+    let mut v0t = v0 - orig;
+    let mut v1t = v1 - orig;
+    let mut v2t = v2 - orig;
+
+    //permute triangle vertices
+    v0t = v0t.permute(kx, ky, kz);
+    v1t = v1t.permute(kx, ky, kz);
+    v2t = v2t.permute(kx, ky, kz);
+
+    // Edge Setup
+    let e0 = v1t - v0t;
+    let e1 = v2t - v0t;
+
+    // Calc the determinant and scale it by the correct component of the ray direction
+    let det = e0.x * e1.y - e0.y * e1.x;
+    if det.abs() < 1e-8 {
+        return None; // Ray is parallel to triangle
+    }
+
+    // Calc barycentric coordinates
+    let inv_det = 1.0 / det;
+    let t = (v0t.x * (v0t.y - dir.y) - v0t.y * (v0t.x - dir.x)) * inv_det;
+    let u = (dir.x * e1.y - dir.y * e1.x) * inv_det;
+    let v = (e0.x * dir.y - e0.y * dir.x) * inv_det;
+
+    // If the barycentric coords are out of the triangle there is no intersection
+    if u < 0.0 || v < 0.0 || (u + v) > 1.0 {
+        return None;
+    }
+
+    // If we get this far we have a valid intersection
+    Some((t, u, v))
+}
+
 fn draw_cursor(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&camera, &GlobalTransform)>,
     calculator_query: Query<&GlobalTransform, With<Calculator>>,
-    windows: Query<&Window>,
-    mut gizmos: Gizmos,
+    windows: Query<&Window>
+    mut gizmos: Gizmos
 ) {
     let (camera, camera_transform) = camera_query.single();
     let calculator = calculator_query.single();
 
     let Some(cursor_position) = windows.single().cursor_position() else {
         return;
-    };
+    }
 
-    // Calculate a ray pointing from the camera into the world based on the cursor's position.
     let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
         return;
-    };
+    }
 
-    // Calculate if and where the ray is hitting the calculator.
-    let Some(distance) =
-        ray.intersect_plane(calculator.translation(), InfinitePlane3d::new(calculator.up()))
-    else {
-        return;
-    };
-    let point = ray.get_point(distance);
-
-    // Draw a circle just above the calculator at that position.
-    gizmos.circle(point + calculator.up() * 0.01, calculator.up(), 0.2, Color::WHITE);
+    for triangle in calculator_triangles.iter() {
+        let (v0, v1, v2) = triangle;
+        if let Some((t, u, v)) = watertight_ray_triangle_intersection(ray.origin, ray.direction, *v0, *v1, *v2) {
+            // Successfully intersected with mesh
+            let point = ray.get_point(t);
+            gizmos.circle(point, calculator.up(), 0.2, Color::WHITE);
+            break;
+        }
+    }
 }
 
+// fn draw_cursor(
+//     camera_query: Query<(&Camera, &GlobalTransform)>,
+//     calculator_query: Query<&GlobalTransform, With<Calculator>>,
+//     windows: Query<&Window>,
+//     mut gizmos: Gizmos,
+// ) {
+//     let (camera, camera_transform) = camera_query.single();
+//     let calculator = calculator_query.single();
 
-// GUI Backend
-#[derive(Debug, Component)]
-struct Calculator;
+//     let Some(cursor_position) = windows.single().cursor_position() else {
+//         return;
+//     };
 
-#[derive(Debug, Component)]
-struct Player;
+//     // Calculate a ray pointing from the camera into the world based on the cursor's position.
+//     let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+//         return;
+//     };
 
-#[derive(Debug, Component)]
-struct WorldModelCamera;
+//     // Calculate if and where the ray is hitting the calculator.
+//     let Some(distance) =
+//         ray.intersect_plane(calculator.translation(), InfinitePlane3d::new(calculator.up()))
+//     else {
+//         return;
+//     };
+//     let point = ray.get_point(distance);
+
+//     // Draw a circle just above the calculator at that position.
+//     gizmos.circle(point + calculator.up() * 0.01, calculator.up(), 0.2, Color::WHITE);
+// }
 
 
-fn setup_calculator_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_calculator_glb(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+    mut meshes: ResMut<Assets<Mesh>>
+) {
+    let calculator_handle = asset_server.load("Calculator.glb#Scene0");
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("Calculator.glb#Scene0"), // Load the scene from GLB file
+            scene: calculator_handle.clone(),
             ..default()
         },
-        Calculator,  // Tag it with Ground for raycasting detection
+        Calculator,
     ));
 }
+
+// fn setup_calculator_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
+//     commands.spawn((
+//         SceneBundle {
+//             scene: asset_server.load("Calculator.glb#Scene0"), // Load the scene from GLB file
+//             ..default()
+//         },
+//         Calculator,  // Tag it with Ground for raycasting detection
+//     ));
+// }
 
 fn spawn_view_model(
     mut commands: Commands,
@@ -235,3 +328,4 @@ fn spawn_text(mut commands: Commands) {
             ));
         });
 }
+
