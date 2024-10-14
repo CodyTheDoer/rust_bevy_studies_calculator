@@ -427,16 +427,30 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         }
     }
 
+        // Vec3i nearID(0,1,2), farID(3,4,5);
+        // int nearX = nearID[kx], farX = farID[kx];
+        // int nearY = nearID[ky], farY = farID[ky];
+        // int nearZ = nearID[kz], farZ = farID[kz];
+        // if (dir[kx] < 0.0f) swap(nearX,farX);
+        // if (dir[ky] < 0.0f) swap(nearY,farY);
+        // if (dir[kz] < 0.0f) swap(nearZ,farZ);
     // Calculate the offset to the newar and far planes for the kx, ky, and kz dimensions for a 
     // box stored in the order lower_x, lower_y, lower_z, upper_x, upper_y, upper_z in memory.
-    Vec3i nearID(0,1,2), farID(3,4,5);
-    int nearX = nearID[kx], farX = farID[kx];
-    int nearY = nearID[ky], farY = farID[ky];
-    int nearZ = nearID[kz], farZ = farID[kz];
-    if (dir[kx] < 0.0f) swap(nearX,farX);
-    if (dir[ky] < 0.0f) swap(nearY,farY);
-    if (dir[kz] < 0.0f) swap(nearZ,farZ);
+    let near_id: [i32, 3] = [0, 1, 2];
+    let far_id: [i32, 3] = [3, 4, 5];
 
+    let mut near_x: f32 = near_id[kx];
+    let mut far_x: f32 = far_id[kx];
+
+    let mut near_y: f32 = near_id[ky];
+    let mut far_y: f32 = far_id[ky];
+
+    let mut near_z: f32 = near_id[kz];
+    let mut far_z: f32 = far_id[kz];
+
+    if direction[kx] < 0.0 {std::mem::swap(&mut near_x, &mut far_x);}
+    if direction[ky] < 0.0 {std::mem::swap(&mut near_y, &mut far_y);}
+    if direction[kz] < 0.0 {std::mem::swap(&mut near_z, &mut far_z);}
 
 
 
