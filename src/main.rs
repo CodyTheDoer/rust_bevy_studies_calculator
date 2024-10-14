@@ -452,40 +452,36 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
     if direction[ky] < 0.0 {std::mem::swap(&mut near_y, &mut far_y);}
     if direction[kz] < 0.0 {std::mem::swap(&mut near_z, &mut far_z);}
 
-
-
-
-    
-
-
-    
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        // float p = 1.0f + 2^-23;
+        // float m = 1.0f - 2^-23;
+        // float up(float a) { return a>0.0f ? a*p : a*m; }
+        // float dn(float a) { return a>0.0f ? a*m : a*p; }
     // Conservative up and down rounding.
-    float p = 1.0f + 2^-23;
-    float m = 1.0f - 2^-23;
-    float up(float a) { return a>0.0f ? a*p : a*m; }
-    float dn(float a) { return a>0.0f ? a*m : a*p; }
+    let p: f32 = 1.0 + 2^-23;
+    let m: f32 = 1.0 - 2^-23;
+    // float up(float a) { return a>0.0f ? a*p : a*m; }
+    // float dn(float a) { return a>0.0f ? a*m : a*p; }
+
+            // Continue from rounding up and down section. Good progress today.
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // Fast rounding for positive numbers
     float Up(float a) { return a*p; }
