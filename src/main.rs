@@ -13,6 +13,7 @@ use bevy::input::common_conditions::*;
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
+use glam::Vec3, 
 
 fn main() {
     App::new()
@@ -44,8 +45,17 @@ fn main() {
         .run();
 }
 
-// Calculator Functionality
 
+#[derive(Debug, Component)]
+struct Calculator;
+
+#[derive(Debug, Component)]
+struct Player;
+
+#[derive(Debug, Component)]
+struct WorldModelCamera;
+
+// Calculator Functionality
 fn add() {
     let result = bevy_calculator::add(24, 49);
     println!("add result: {:?}", result)
@@ -131,16 +141,6 @@ fn draw_cursor(
 }
 
 // GUI Backend
-#[derive(Debug, Component)]
-struct Calculator;
-
-#[derive(Debug, Component)]
-struct Player;
-
-#[derive(Debug, Component)]
-struct WorldModelCamera;
-
-
 fn setup_calculator_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneBundle {
@@ -235,15 +235,41 @@ fn spawn_text(mut commands: Commands) {
         });
 }
 
+
 fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triangle, returns true if intersects
     origin: Vec3,                   // Ray origin
     direction: Vec3,                // Ray Direction
     triangle: (Vec3, Vec3, Vec3),   // Triangle contains coordinates for each vertex in order to wind triangle for testing
 ) -> bool {
+
     // calculate dimension where the ray direction is maximal 
-    int kz = max_dim(abs(dir));
-    int kx = kz+1; if (kx == 3) kx = 0;
+    fn index_max_abs_dim(v: Vec3) -> usize {
+        let abs_v = v.abs()
+        if abs_v.x() >= abs_v.y() && abs_v.x() >= abs_v.z() {
+            0 // returns x index
+        } else if abs_v.y() >= abs_v.x() && abs_v.y() >= abs_v.z() {
+            1 // returns y index
+        } else {
+            2 // returns z index
+        }
+    }
+
+    // int kz = max_dim(abs(dir));
+    let kz = index_max_abs_dim(direction);
+    
+    // int kx = kz+1; if (kx == 3) kx = 0;
+    let kx = (kz + 1) % 3;
+
+
+
+
+
+
+
+
+    
     int ky = kx+1; if (ky == 3) ky = 0;
+
 
     // swap kx and ky dimension to preserve winding direction of triangles 
     if (dir[kz] < 0.0f) swap(kx,ky);
