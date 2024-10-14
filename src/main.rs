@@ -285,9 +285,9 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         // const Vec3f B = tri.B-org;
         // const Vec3f C = tri.C-org;
     // Calculate vertices relative to ray origin
-    let point_a = triangle.0 - origin;
-    let point_b = triangle.1 - origin;
-    let point_c = triangle.2 - origin;
+    const POINT_A = triangle.0 - origin;
+    const POINT_B = triangle.1 - origin;
+    const POINT_C = triangle.2 - origin;
 
         // const float Ax = A[kx] - Sx*A[kz];
         // const float Ay = A[ky] - Sy*A[kz];
@@ -296,23 +296,23 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         // const float Cx = C[kx] - Sx*C[kz];
         // const float Cy = C[ky] - Sy*C[kz];
     // perform shear and scale of vertices
-    let point_a_x: f32 = point_a[kx] - sx * point_a[kz];
-    let point_a_y: f32 = point_a[ky] - sy * point_a[kz];
+    const POINT_A_X: f32 = POINT_A[kx] - sx * POINT_A[kz];
+    const POINT_A_Y: f32 = POINT_A[ky] - sy * POINT_A[kz];
 
-    let point_b_x: f32 = point_b[kx] - sx * point_b[kz];
-    let point_b_y: f32 = point_b[ky] - sy * point_b[kz];
+    const POINT_B_X: f32 = POINT_B[kx] - sx * POINT_B[kz];
+    const POINT_B_Y: f32 = POINT_B[ky] - sy * POINT_B[kz];
     
-    let point_c_x: f32 = point_c[kx] - sx * point_c[kz];
-    let point_c_y: f32 = point_c[ky] - sy * point_c[kz];
+    const POINT_C_X: f32 = POINT_C[kx] - sx * POINT_C[kz];
+    const POINT_C_Y: f32 = POINT_C[ky] - sy * POINT_C[kz];
     
 
         // float U = Cx*By - Cy*Bx;
         // float V = Ax*Cy - Ay*Cx;
         // float W = Bx*Ay - By*Ax;
     // Calculate scaled barycentric coordinates
-    let mut u: f32 = point_c_x * point_b_y - point_c_y * point_b_x;
-    let mut v: f32 = point_a_x * point_c_y - point_a_y * point_c_x;
-    let mut w: f32 = point_b_x * point_a_y - point_b_y * point_a_x;
+    let mut u: f32 = POINT_C_X * POINT_B_Y - POINT_C_Y * POINT_B_X;
+    let mut v: f32 = POINT_A_X * POINT_C_Y - POINT_A_Y * POINT_C_X;
+    let mut w: f32 = POINT_B_X * POINT_A_Y - POINT_B_Y * POINT_A_X;
 
         // if (U == 0.0f || V == 0.0f || W == 0.0f) {
         //     double CxBy = (double)Cx*(double)By;
@@ -376,10 +376,10 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         // const float Cz = Sz*C[kz];
         // const float T = U*Az + V*Bz + W*Cz;
     // Calculate scaled z-coordinates of vertices and use them to calculate the hit distance.
-    let point_a_z: f32 = sz * point_a[kz];
-    let point_b_z: f32 = sz * point_b[kz];
-    let point_c_z: f32 = sz * point_c[kz];
-    let t: f32 = u * point_a_z + v * point_b_z + w * point_c_z;
+    const POINT_A_Z: f32 = sz * POINT_A[kz];
+    const POINT_B_Z: f32 = sz * POINT_B[kz];
+    const POINT_C_Z: f32 = sz * POINT_C[kz];
+    const T: f32 = u * POINT_A_Z + v * POINT_B_Z + w * POINT_C_Z;
     
 
         // const float rcpDet = 1.0f/det;
@@ -388,11 +388,11 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         // hit.w = W*rcpDet;
         // hit.t = T*rcpDet;
     // Normalize U, V, W, and T
-    let reciprocal_of_determinate: f32 = 1.0 / determinate;
-    let hit_u: f32 = u * reciprocal_of_determinate;
-    let hit_v: f32 = v * reciprocal_of_determinate;
-    let hit_w: f32 = w * reciprocal_of_determinate;
-    let hit_t: f32 = t * reciprocal_of_determinate;
+    const RECIPROCAL_OF_DETERMINATE: f32 = 1.0 / determinate;
+    let hit_u: f32 = u * RECIPROCAL_OF_DETERMINATE;
+    let hit_v: f32 = v * RECIPROCAL_OF_DETERMINATE;
+    let hit_w: f32 = w * RECIPROCAL_OF_DETERMINATE;
+    let hit_t: f32 = T * RECIPROCAL_OF_DETERMINATE;
 
         // #ifdef BACKFACE_CULLING
         // if (T < 0.0f || T > hit.t * det)
@@ -454,50 +454,84 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
 
         // float p = 1.0f + 2^-23;
         // float m = 1.0f - 2^-23;
+
         // float up(float a) { return a>0.0f ? a*p : a*m; }
         // float dn(float a) { return a>0.0f ? a*m : a*p; }
-    // Conservative up and down rounding.
-    let p: f32 = 1.0 + 2^-23;
-    let m: f32 = 1.0 - 2^-23;
-    // float up(float a) { return a>0.0f ? a*p : a*m; }
-    // float dn(float a) { return a>0.0f ? a*m : a*p; }
 
-            // Continue from rounding up and down section. Good progress today.
+        // float Up(float a) { return a*p; }
+        // float Dn(float a) { return a*m; }
+    // up and down rounding.
+    let p: f32 = 1.0 + (2.0f32).powi(-23);
+    let m: f32 = 1.0 - (2.0f32).powi(-23);
 
-    
+    fn round_up_check_sign(num: f32, p: f32, m: f32) -> f32 {
+        if num > 0.0 {
+            num * p
+        } else {
+            num * m
+        }
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    fn round_down_check_sign(num: f32, p: f32, m: f32) -> f32 {
+        if num > 0.0 {
+            num * m
+        } else {
+            num * p
+        }
+    }
     // Fast rounding for positive numbers
-    float Up(float a) { return a*p; }
-    float Dn(float a) { return a*m; }
+    fn round_up_positive(num: f32, p: f32) -> f32 {
+        num * p
+    }
 
+    fn round_down_positive(num: f32, m: f32) -> f32 {
+        num * m
+    }
+    
+        // const float eps = 5.0f * 2^-24;
+        // Vec3f lower = Dn(abs(org-box.lower));
+        // Vec3f upper = Up(abs(org-box.upper));
     // Calculate corrected origin for new and far plane distance calculations. Each floating point
     // operation is forced to be rounded into the correct direction.
-    const float eps = 5.0f * 2^-24;
-    Vec3f lower = Dn(abs(org-box.lower));
-    Vec3f upper = Up(abs(org-box.upper));
-    float max_z = max(lower[kz],upper[kz]);
-    float err_near_x = Up(lower[kx]+max_z);
-    float err_near_y = Up(lower[ky]+max_z);
-    float org_near_x = up(org[kx]+Up(eps*err_near_x));
-    float org_near_y = up(org[ky]+Up(eps*err_near_y));
-    float org_near_z = org[kz];
+    const EPSILON: f32 = 5.0 * (2.0f32).powi(-24);
+
+    let bounding_box_lower = Vec3::new(
+        point_a.x().min(point_b.x()).min(point_c.x());
+        point_a.y().min(point_b.y()).min(point_c.y());
+        point_a.z().min(point_b.z()).min(point_c.z());
+    )
+    let bounding_box_upper = Vec3::new(
+        point_a.x().max(point_b.x()).max(point_c.x()),
+        point_a.y().max(point_b.y()).max(point_c.y()),
+        point_a.z().max(point_b.z()).max(point_c.z()),
+    );
+
+    let lower_bounds round_down_positive((origin - bounding_box_lower).abs());
+    let upper_bounds round_up_positive((origin - bounding_box_upper).abs());
+
+        // float max_z = max(lower[kz],upper[kz]);
+        // float err_near_x = Up(lower[kx]+max_z);
+        // float err_near_y = Up(lower[ky]+max_z);
+    let max_z: f32 = bounding_box_lower[kz].max(bounding_box_upper[kz]);
+    let error_near_x: f32 = round_up_positive(bounding_box_lower[kx] + max_z, p);
+    let error_near_y: f32 = round_up_positive(bounding_box_lower[ky] + max_z, p);
+
+        // float org_near_x = up(org[kx]+Up(eps*err_near_x));
+        // float org_near_y = up(org[ky]+Up(eps*err_near_y));
+        // float org_near_z = org[kz];
+    let origin_near_x = round_up_check_sign(origin[kx] + EPSILON * error_near_x, p, m);
+    let origin_near_y = round_up_check_sign(origin[ky] + EPSILON * error_near_y, p, m);
+    let origin_near_z = origin[kz];
+
+
+
+
+
+
+
+
+
+
     float err_far_x = Up(upper[kx]+max_z);
     float err_far_y = Up(upper[ky]+max_z);
     float org_far_x = dn(org[kx]-Up(eps*err_far_x));
