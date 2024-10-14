@@ -290,9 +290,13 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
     };
     
     // Calculate vertices relative to ray origin
-    const Vec3f A = tri.A-org;
-    const Vec3f B = tri.B-org;
-    const Vec3f C = tri.C-org;
+    // const Vec3f A = tri.A-org;
+    // const Vec3f B = tri.B-org;
+    // const Vec3f C = tri.C-org;
+
+    let point_a = triangle.0 - origin;
+    let point_b = triangle.1 - origin;
+    let point_c = triangle.2 - origin;
 
     
 
