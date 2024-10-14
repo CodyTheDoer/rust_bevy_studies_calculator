@@ -272,9 +272,9 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         // float Sz = 1.0f/dir[kz];
     // calculate shear constants
     let valid_kz = direction[kz].abs() > std::f64::EPSILON; //Ensure we're not dividing against zero
-    let sx: f64 = if valid_kz {direction[kx] / direction[kz]} else {panic!("Placeholder Responce: sx: ")};
-    let sy: f64 = if valid_kz {direction[ky] / direction[kz]} else { panic!("Placeholder Responce: sy: ")};
-    let sz: f64 = if valid_kz {1.0 / direction[kz]} else {panic!("Placeholder Responce: sz: ")};
+    let sx: f32 = if valid_kz {direction[kx] / direction[kz]} else {panic!("Placeholder Responce: sx: ")};
+    let sy: f32 = if valid_kz {direction[ky] / direction[kz]} else { panic!("Placeholder Responce: sy: ")};
+    let sz: f32 = if valid_kz {1.0 / direction[kz]} else {panic!("Placeholder Responce: sz: ")};
     
         // const Vec3f A = tri.A-org;
         // const Vec3f B = tri.B-org;
@@ -291,23 +291,49 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         // const float Cx = C[kx] - Sx*C[kz];
         // const float Cy = C[ky] - Sy*C[kz];
     // perform shear and scale of vertices
-    let point_a_x: f64 = point_a[kx] - sx * point_a[kz];
-    let point_a_y: f64 = point_a[ky] - sy * point_a[kz];
+    let point_a_x: f32 = point_a[kx] - sx * point_a[kz];
+    let point_a_y: f32 = point_a[ky] - sy * point_a[kz];
 
-    let point_b_x: f64 = point_b[kx] - sx * point_b[kz];
-    let point_b_y: f64 = point_b[ky] - sy * point_b[kz];
+    let point_b_x: f32 = point_b[kx] - sx * point_b[kz];
+    let point_b_y: f32 = point_b[ky] - sy * point_b[kz];
     
-    let point_c_x: f64 = point_c[kx] - sx * point_c[kz];
-    let point_c_y: f64 = point_c[ky] - sy * point_c[kz];
+    let point_c_x: f32 = point_c[kx] - sx * point_c[kz];
+    let point_c_y: f32 = point_c[ky] - sy * point_c[kz];
     
 
         // float U = Cx*By - Cy*Bx;
         // float V = Ax*Cy - Ay*Cx;
         // float W = Bx*Ay - By*Ax;
     // Calculate scaled barycentric coordinates
-    let u: f64 = point_c_x * point_b_y - point_c_y * point_b_x;
-    let v: f64 = point_a_x * point_c_y - point_a_y * point_c_x;
-    let w: f64 = point_b_x * point_a_y - point_b_y * point_a_x;
+    let mut u: f32 = point_c_x * point_b_y - point_c_y * point_b_x;
+    let mut v: f32 = point_a_x * point_c_y - point_a_y * point_c_x;
+    let mut w: f32 = point_b_x * point_a_y - point_b_y * point_a_x;
+
+        // if (U == 0.0f || V == 0.0f || W == 0.0f) {
+        //     double CxBy = (double)Cx*(double)By;
+        //     double CyBx = (double)Cy*(double)Bx;
+        //     U = (float)(CxBy - CyBx);
+        //     double AxCy = (double)Ax*(double)Cy;
+        //     double AyCx = (double)Ay*(double)Cx;
+        //     V = (float)(AxCy - AyCx);
+        //     double BxAy = (double)Bx*(double)Ay;
+        //     double ByAx = (double)By*(double)Ax;
+        //     W = (float)(BxAy - ByAx);
+        // }    
+    // Fallback to test against edges using double precision
+    if (u == 0.0 || v == 0.0 || w == 0.0) {
+        let cx_by: f64 = f64::from(point_c_x) * f64::from(point_b_y);
+        let cy_bx: f64 = f64::from(point_c_y) * f64::from(point_b_x);
+        u = (cx_by - cy_bx) as f32;
+        let ax_cy: f64 = f64::from(point_a_x) * f64::from(point_c_y);
+        let ay_cx: f64 = f64::from(point_a_y) * f64::from(point_c_x);
+        v = (ax_cy - ay_cx) as f32;
+        let bx_ay: f64 = f64::from(point_b_x) * f64::from(point_a_y);
+        let by_ax: f64 = f64::from(point_b_y) * f64::from(point_a_x);
+        w = (bx_ay - by_ax) as f32;
+    }
+
+
 
 
 
@@ -322,18 +348,7 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
 
 
 
-    // Fallback to test against edges using double precision
-    if (U == 0.0f || V == 0.0f || W == 0.0f) {
-        double CxBy = (double)Cx*(double)By;
-        double CyBx = (double)Cy*(double)Bx;
-        U = (float)(CxBy - CyBx);
-        double AxCy = (double)Ax*(double)Cy;
-        double AyCx = (double)Ay*(double)Cx;
-        V = (float)(AxCy - AyCx);
-        double BxAy = (double)Bx*(double)Ay;
-        double ByAx = (double)By*(double)Ax;
-        W = (float)(BxAy - ByAx);
-    }
+
 
     // Perform edge tests. Moving this test before and at the end of the previous conditional gives higher performance.
     #ifdef BACKFACE_CULLING
