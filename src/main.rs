@@ -273,6 +273,10 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         // float Sz = 1.0f/dir[kz];
     // calculate shear constants
     let valid_kz = direction[kz].abs() > std::f64::EPSILON; //Ensure we're not dividing against zero
+    if !valid_kz { // Early return if direction[kz] is too close to zero
+        return false;
+    }
+
     let sx: f32 = if valid_kz {direction[kx] / direction[kz]} else {panic!("Placeholder Responce: sx: ")};
     let sy: f32 = if valid_kz {direction[ky] / direction[kz]} else { panic!("Placeholder Responce: sy: ")};
     let sz: f32 = if valid_kz {1.0 / direction[kz]} else {panic!("Placeholder Responce: sz: ")};
@@ -354,15 +358,93 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         return true;
     }
 
-    perform_edge_tests(u, v, w, backface_culling);
+    if !perform_edge_tests(u, v, w, backface_culling) {
+        return false;
+    }
+
+        // float det = U+V+W;
+        // if (det == 0.0f) return;
 
     // Calculate the determinate
-    float det = U+V+W;
-    if (det == 0.0f) return;
+    let determinate: f32 = u + v + w;
+    if determinate == 0.0 {
+        return false
+    }
+
+        // const float Az = Sz*A[kz];
+        // const float Bz = Sz*B[kz];
+        // const float Cz = Sz*C[kz];
+        // const float T = U*Az + V*Bz + W*Cz;
+    // Calculate scaled z-coordinates of vertices and use them to calculate the hit distance.
+    let point_a_z: f32 = sz * point_a[kz];
+    let point_b_z: f32 = sz * point_b[kz];
+    let point_c_z: f32 = sz * point_c[kz];
+    let t: f32 = u * point_a_z + v * point_b_z + w * point_c_z;
+    
+
+        // const float rcpDet = 1.0f/det;
+        // hit.u = U*rcpDet;
+        // hit.v = V*rcpDet;
+        // hit.w = W*rcpDet;
+        // hit.t = T*rcpDet;
+    // Normalize U, V, W, and T
+    let reciprocal_of_determinate: f32 = 1.0 / determinate;
+    let hit_u: f32 = u * reciprocal_of_determinate;
+    let hit_v: f32 = v * reciprocal_of_determinate;
+    let hit_w: f32 = w * reciprocal_of_determinate;
+    let hit_t: f32 = t * reciprocal_of_determinate;
+
+        // #ifdef BACKFACE_CULLING
+        // if (T < 0.0f || T > hit.t * det)
+        // return;
+        // #else
+        // int det_sign = sign_mask(det);
+        // if (xorf(T,det_sign) < 0.0f) ||
+        // xorf(T,det_sign) > hit.t * xorf(det, det_sign))
+        // return;
+        // #endif
+    
+    fn sign_mask(f: f32) -> u32 {
+        (f.to_bits() >> 31) & 1 // returns 1 if f is negative, and 0 if positive
+    }
+    fn xorf(value: f32, sign_mask: u32) -> f32 {
+        let value_bits = value.to_bits();
+        let result_bits = value_bits ^ (sign_mask << 31);
+        f32::from_bits(result_bits) // returns value with flipped sign if determinate is negative.
+    }
+
+    if backface_culling == true {
+        if (t < 0.0 || t > hit_t * determinate) {
+            return false;
+        } else {
+            let determinate_sign = sign_mask(determinate);
+            let t_xor = xorf(t, determinate_sign)
+            let determinate_xor = xorf(determinate, determinate_sign)
+
+            if t_xor < 0.0 || t_xor > hit_t * determinate_xor {
+                return false
+            }
+        }
+    }
+
+    // Calculate the offset to the newar and far planes for the kx, ky, and kz dimensions for a 
+    // box stored in the order lower_x, lower_y, lower_z, upper_x, upper_y, upper_z in memory.
+    Vec3i nearID(0,1,2), farID(3,4,5);
+    int nearX = nearID[kx], farX = farID[kx];
+    int nearY = nearID[ky], farY = farID[ky];
+    int nearZ = nearID[kz], farZ = farID[kz];
+    if (dir[kx] < 0.0f) swap(nearX,farX);
+    if (dir[ky] < 0.0f) swap(nearY,farY);
+    if (dir[kz] < 0.0f) swap(nearZ,farZ);
 
 
 
 
+
+    
+
+
+    
 
 
 
@@ -381,37 +463,9 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
 
 
 
-    // Calculate scaled z-coordinates of vertices and use them to calculate the hit distance.
-    const float Az = Sz*A[kz];
-    const float Bz = Sz*B[kz];
-    const float Cz = Sz*C[kz];
-    const float T = U*Az + V*Bz + W*Cz;
-    #ifdef BACKFACE_CULLING
-    if (T < 0.0f || T > hit.t * det)
-    return;
-    #else
-    int det_sign = sign_mask(det);
-    if (xorf(T,det_sign) < 0.0f) ||
-    xorf(T,det_sign) > hit.t * xorf(det, det_sign))
-    return;
-    #endif
 
-    // Normalize U, V, W, and T
-    const float rcpDet = 1.0f/det;
-    hit.u = U*rcpDet;
-    hit.v = V*rcpDet;
-    hit.w = W*rcpDet;
-    hit.t = T*rcpDet;
 
-    // Calculate the offset to the newar and far planes for the kx, ky, and kz dimensions for a 
-    // box stored in the order lower_x, lower_y, lower_z, upper_x, upper_y, upper_z in memory.
-    Vec3i nearID(0,1,2), farID(3,4,5);
-    int nearX = nearID[kx], farX = farID[kx];
-    int nearY = nearID[ky], farY = farID[ky];
-    int nearZ = nearID[kz], farZ = farID[kz];
-    if (dir[kx] < 0.0f) swap(nearX,farX);
-    if (dir[ky] < 0.0f) swap(nearY,farY);
-    if (dir[kz] < 0.0f) swap(nearZ,farZ);
+
 
     // Conservative up and down rounding.
     float p = 1.0f + 2^-23;
