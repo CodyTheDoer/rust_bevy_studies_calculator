@@ -235,7 +235,6 @@ fn spawn_text(mut commands: Commands) {
         });
 }
 
-
 fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triangle, returns true if intersects
     origin: Vec3,                   // Ray origin
     direction: Vec3,                // Ray Direction
@@ -258,7 +257,46 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
     let kz = index_max_abs_dim(direction);
     
     // int kx = kz+1; if (kx == 3) kx = 0;
-    let kx = (kz + 1) % 3;
+    // int ky = kx+1; if (ky == 3) ky = 0;
+    let mut kx = (kz + 1) % 3;
+    let mut ky = (kx + 1) % 3;
+
+    // swap kx and ky dimension to preserve winding direction of triangles 
+    // if (dir[kz] < 0.0f) swap(kx,ky);
+    if direction[kz] < 0.0 {
+        std::mem::swap(&mut kx, &mut ky);
+    }
+
+    // calculate shear constants
+    // float Sx = dir[kx]/dir[kz];
+    // float Sy = dir[ky]/dir[kz];
+    // float Sz = 1.0f/dir[kz];
+    
+    let valid_kz = direction[kz].abs() > std::f64::EPSILON; //Ensure we're not dividing against zero
+    let sx: f64 = if valid_kz {
+        direction[kx] / direction[kz]
+    } else {
+        panic!("Placeholder Responce: sx: ");
+    };
+    let sy: f64 = if valid_kz {
+        direction[ky] / direction[kz];
+    } else {
+        panic!("Placeholder Responce: sy: ");
+    };
+    let sz: f64 = if valid_kz {
+        1.0 / direction[kz];
+    } else {
+        panic!("Placeholder Responce: sz: ");
+    };
+    
+    // Calculate vertices relative to ray origin
+    const Vec3f A = tri.A-org;
+    const Vec3f B = tri.B-org;
+    const Vec3f C = tri.C-org;
+
+    
+
+
 
 
 
@@ -268,21 +306,10 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
 
 
     
-    int ky = kx+1; if (ky == 3) ky = 0;
 
 
-    // swap kx and ky dimension to preserve winding direction of triangles 
-    if (dir[kz] < 0.0f) swap(kx,ky);
 
-    // calculate shear constants
-    float Sx = dir[kx]/dir[kz];
-    float Sy = dir[ky]/dir[kz];
-    float Sz = 1.0f/dir[kz];
 
-    // Calculate vertices relative to ray origin
-    const Vec3f A = tri.A-org;
-    const Vec3f B = tri.B-org;
-    const Vec3f C = tri.C-org;
 
     // perfor shear and scale of vertices
     const float Ax = A[kx] - Sx*A[kz];
