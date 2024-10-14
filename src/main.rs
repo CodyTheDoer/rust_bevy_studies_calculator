@@ -130,7 +130,6 @@ fn draw_cursor(
     gizmos.circle(point + calculator.up() * 0.01, calculator.up(), 0.2, Color::WHITE);
 }
 
-
 // GUI Backend
 #[derive(Debug, Component)]
 struct Calculator;
@@ -234,4 +233,146 @@ fn spawn_text(mut commands: Commands) {
                 },
             ));
         });
+}
+
+fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triangle, returns true if intersects
+    origin: Vec3,                   // Ray origin
+    direction: Vec3,                // Ray Direction
+    triangle: (Vec3, Vec3, Vec3),   // Triangle contains coordinates for each vertex in order to wind triangle for testing
+) -> bool {
+    // calculate dimension where the ray direction is maximal 
+    int kz = max_dim(abs(dir));
+    int kx = kz+1; if (kx == 3) kx = 0;
+    int ky = kx+1; if (ky == 3) ky = 0;
+
+    // swap kx and ky dimension to preserve winding direction of triangles 
+    if (dir[kz] < 0.0f) swap(kx,ky);
+
+    // calculate shear constants
+    float Sx = dir[kx]/dir[kz];
+    float Sy = dir[ky]/dir[kz];
+    float Sz = 1.0f/dir[kz];
+
+    // Calculate vertices relative to ray origin
+    const Vec3f A = tri.A-org;
+    const Vec3f B = tri.B-org;
+    const Vec3f C = tri.C-org;
+
+    // perfor shear and scale of vertices
+    const float Ax = A[kx] - Sx*A[kz];
+    const float Ay = A[ky] - Sy*A[kz];
+    const float Bx = B[kx] - Sx*B[kz];
+    const float By = B[ky] - Sy*B[kz];
+    const float Cx = C[kx] - Sx*C[kz];
+    const float Cy = C[ky] - Sy*C[kz];
+
+    // Calculate scaled barycentric coordinates
+    float U = Cx*By - Cy*Bx;
+    float V = Ax*Cy - Ay*Cx;
+    float W = Bx*Ay - By*Ax;
+
+    // Fallback to test against edges using double precision
+    if (U == 0.0f || V == 0.0f || W == 0.0f) {
+        double CxBy = (double)Cx*(double)By;
+        double CyBx = (double)Cy*(double)Bx;
+        U = (float)(CxBy - CyBx);
+        double AxCy = (double)Ax*(double)Cy;
+        double AyCx = (double)Ay*(double)Cx;
+        V = (float)(AxCy - AyCx);
+        double BxAy = (double)Bx*(double)Ay;
+        double ByAx = (double)By*(double)Ax;
+        W = (float)(BxAy - ByAx);
+    }
+
+    // Perform edge tests. Moving this test before and at the end of the previous conditional gives higher performance.
+    #ifdef BACKFACE_CULLING
+    if (U<0.0f || V<0.0f || W<0.0f) return;
+    #else
+    if ((U<0.0f || V<0.0f || W<0.0f) &&
+    (U>0.0f || V>0.0f || W>0.0f)) return;
+    #endif
+
+    // Calculate the determinate
+    float det = U+V+W;
+    if (det == 0.0f) return;
+
+    // Calculate scaled z-coordinates of vertices and use them to calculate the hit distance.
+    const float Az = Sz*A[kz];
+    const float Bz = Sz*B[kz];
+    const float Cz = Sz*C[kz];
+    const float T = U*Az + V*Bz + W*Cz;
+    #ifdef BACKFACE_CULLING
+    if (T < 0.0f || T > hit.t * det)
+    return;
+    #else
+    int det_sign = sign_mask(det);
+    if (xorf(T,det_sign) < 0.0f) ||
+    xorf(T,det_sign) > hit.t * xorf(det, det_sign))
+    return;
+    #endif
+
+    // Normalize U, V, W, and T
+    const float rcpDet = 1.0f/det;
+    hit.u = U*rcpDet;
+    hit.v = V*rcpDet;
+    hit.w = W*rcpDet;
+    hit.t = T*rcpDet;
+
+    // Calculate the offset to the newar and far planes for the kx, ky, and kz dimensions for a 
+    // box stored in the order lower_x, lower_y, lower_z, upper_x, upper_y, upper_z in memory.
+    Vec3i nearID(0,1,2), farID(3,4,5);
+    int nearX = nearID[kx], farX = farID[kx];
+    int nearY = nearID[ky], farY = farID[ky];
+    int nearZ = nearID[kz], farZ = farID[kz];
+    if (dir[kx] < 0.0f) swap(nearX,farX);
+    if (dir[ky] < 0.0f) swap(nearY,farY);
+    if (dir[kz] < 0.0f) swap(nearZ,farZ);
+
+    // Conservative up and down rounding.
+    float p = 1.0f + 2^-23;
+    float m = 1.0f - 2^-23;
+    float up(float a) { return a>0.0f ? a*p : a*m; }
+    float dn(float a) { return a>0.0f ? a*m : a*p; }
+
+    // Fast rounding for positive numbers
+    float Up(float a) { return a*p; }
+    float Dn(float a) { return a*m; }
+
+    // Calculate corrected origin for new and far plane distance calculations. Each floating point
+    // operation is forced to be rounded into the correct direction.
+    const float eps = 5.0f * 2^-24;
+    Vec3f lower = Dn(abs(org-box.lower));
+    Vec3f upper = Up(abs(org-box.upper));
+    float max_z = max(lower[kz],upper[kz]);
+    float err_near_x = Up(lower[kx]+max_z);
+    float err_near_y = Up(lower[ky]+max_z);
+    float org_near_x = up(org[kx]+Up(eps*err_near_x));
+    float org_near_y = up(org[ky]+Up(eps*err_near_y));
+    float org_near_z = org[kz];
+    float err_far_x = Up(upper[kx]+max_z);
+    float err_far_y = Up(upper[ky]+max_z);
+    float org_far_x = dn(org[kx]-Up(eps*err_far_x));
+    float org_far_y = dn(org[ky]-Up(eps*err_far_y));
+    float org_far_z = org[kz];
+    if (dir[kx] < 0.0f) swap(org_near_x,org_far_x);
+    if (dir[ky] < 0.0f) swap(org_near_y,org_far_y);
+
+    // Calculate corrected reciprocal direction for near and far plane distance calculations. We
+    // correct with one additional ulp to also correctly round the subtraction inside the traversal
+    // loop. The works only because the ray is only allowed to hit geometry in front of it.
+    float rdir_near_x = Dn(Dn(rdir[kx]));
+    float rdir_near_y = Dn(Dn(rdir[ky]));
+    float rdir_near_z = Dn(Dn(rdir[kz]))
+    float rdir_far_x = Up(Up(rdir[kx]));
+    float rdir_far_y = Up(Up(rdir[ky]));
+    float rdir_far_z = Up(Up(rdir[kz]));
+    float tNearX = (box[nearX] - org_near_x) * rdir_near_x;
+    float tNearY = (box[nearY] - org_near_y) * rdir_near_y;
+    float tNearZ = (box[nearZ] - org_near_z) * rdir_near_z;
+    float tFarX = (box[farX ] - org_far_x ) * rdir_far_x;
+    float tFarY = (box[farY ] - org_far_y ) * rdir_far_y;
+    float tFarZ = (box[farZ ] - org_far_z ) * rdir_far_z;
+    float tNear = max(tNearX,tNearY,tNearZ,rayNear);
+    float tFar = min(tFarX ,tFarY ,tFarZ ,rayFar );
+    bool hit = tNear <= tFar;
 }
