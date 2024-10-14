@@ -253,80 +253,74 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         }
     }
 
-    // int kz = max_dim(abs(dir));
+        // int kz = max_dim(abs(dir));
     let kz = index_max_abs_dim(direction);
     
-    // int kx = kz+1; if (kx == 3) kx = 0;
-    // int ky = kx+1; if (ky == 3) ky = 0;
+        // int kx = kz+1; if (kx == 3) kx = 0;
+        // int ky = kx+1; if (ky == 3) ky = 0;
     let mut kx = (kz + 1) % 3;
     let mut ky = (kx + 1) % 3;
 
+        // if (dir[kz] < 0.0f) swap(kx,ky);
     // swap kx and ky dimension to preserve winding direction of triangles 
-    // if (dir[kz] < 0.0f) swap(kx,ky);
     if direction[kz] < 0.0 {
         std::mem::swap(&mut kx, &mut ky);
     }
 
+        // float Sx = dir[kx]/dir[kz];
+        // float Sy = dir[ky]/dir[kz];
+        // float Sz = 1.0f/dir[kz];
     // calculate shear constants
-    // float Sx = dir[kx]/dir[kz];
-    // float Sy = dir[ky]/dir[kz];
-    // float Sz = 1.0f/dir[kz];
-    
     let valid_kz = direction[kz].abs() > std::f64::EPSILON; //Ensure we're not dividing against zero
-    let sx: f64 = if valid_kz {
-        direction[kx] / direction[kz]
-    } else {
-        panic!("Placeholder Responce: sx: ");
-    };
-    let sy: f64 = if valid_kz {
-        direction[ky] / direction[kz];
-    } else {
-        panic!("Placeholder Responce: sy: ");
-    };
-    let sz: f64 = if valid_kz {
-        1.0 / direction[kz];
-    } else {
-        panic!("Placeholder Responce: sz: ");
-    };
+    let sx: f64 = if valid_kz {direction[kx] / direction[kz]} else {panic!("Placeholder Responce: sx: ")};
+    let sy: f64 = if valid_kz {direction[ky] / direction[kz]} else { panic!("Placeholder Responce: sy: ")};
+    let sz: f64 = if valid_kz {1.0 / direction[kz]} else {panic!("Placeholder Responce: sz: ")};
     
+        // const Vec3f A = tri.A-org;
+        // const Vec3f B = tri.B-org;
+        // const Vec3f C = tri.C-org;
     // Calculate vertices relative to ray origin
-    // const Vec3f A = tri.A-org;
-    // const Vec3f B = tri.B-org;
-    // const Vec3f C = tri.C-org;
-
     let point_a = triangle.0 - origin;
     let point_b = triangle.1 - origin;
     let point_c = triangle.2 - origin;
 
+        // const float Ax = A[kx] - Sx*A[kz];
+        // const float Ay = A[ky] - Sy*A[kz];
+        // const float Bx = B[kx] - Sx*B[kz];
+        // const float By = B[ky] - Sy*B[kz];
+        // const float Cx = C[kx] - Sx*C[kz];
+        // const float Cy = C[ky] - Sy*C[kz];
+    // perform shear and scale of vertices
+    let point_a_x: f64 = point_a[kx] - sx * point_a[kz];
+    let point_a_y: f64 = point_a[ky] - sy * point_a[kz];
+
+    let point_b_x: f64 = point_b[kx] - sx * point_b[kz];
+    let point_b_y: f64 = point_b[ky] - sy * point_b[kz];
+    
+    let point_c_x: f64 = point_c[kx] - sx * point_c[kz];
+    let point_c_y: f64 = point_c[ky] - sy * point_c[kz];
     
 
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-    // perfor shear and scale of vertices
-    const float Ax = A[kx] - Sx*A[kz];
-    const float Ay = A[ky] - Sy*A[kz];
-    const float Bx = B[kx] - Sx*B[kz];
-    const float By = B[ky] - Sy*B[kz];
-    const float Cx = C[kx] - Sx*C[kz];
-    const float Cy = C[ky] - Sy*C[kz];
-
+        // float U = Cx*By - Cy*Bx;
+        // float V = Ax*Cy - Ay*Cx;
+        // float W = Bx*Ay - By*Ax;
     // Calculate scaled barycentric coordinates
-    float U = Cx*By - Cy*Bx;
-    float V = Ax*Cy - Ay*Cx;
-    float W = Bx*Ay - By*Ax;
+    let u: f64 = point_c_x * point_b_y - point_c_y * point_b_x;
+    let v: f64 = point_a_x * point_c_y - point_a_y * point_c_x;
+    let w: f64 = point_b_x * point_a_y - point_b_y * point_a_x;
+
+
+
+
+
+
+    
+
+
+
+
+
+
 
     // Fallback to test against edges using double precision
     if (U == 0.0f || V == 0.0f || W == 0.0f) {
