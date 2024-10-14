@@ -510,52 +510,66 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
     let upper_bounds round_up_positive((origin - bounding_box_upper).abs());
 
         // float max_z = max(lower[kz],upper[kz]);
+    let max_z: f32 = bounding_box_lower[kz].max(bounding_box_upper[kz]);
+
         // float err_near_x = Up(lower[kx]+max_z);
         // float err_near_y = Up(lower[ky]+max_z);
-    let max_z: f32 = bounding_box_lower[kz].max(bounding_box_upper[kz]);
     let error_near_x: f32 = round_up_positive(bounding_box_lower[kx] + max_z, p);
     let error_near_y: f32 = round_up_positive(bounding_box_lower[ky] + max_z, p);
 
         // float org_near_x = up(org[kx]+Up(eps*err_near_x));
         // float org_near_y = up(org[ky]+Up(eps*err_near_y));
         // float org_near_z = org[kz];
-    let origin_near_x = round_up_check_sign(origin[kx] + EPSILON * error_near_x, p, m);
-    let origin_near_y = round_up_check_sign(origin[ky] + EPSILON * error_near_y, p, m);
+    let mut origin_near_x = round_up_check_sign(origin[kx] + EPSILON * round_up_positive(error_near_x, p), p, m);
+    let mut origin_near_y = round_up_check_sign(origin[ky] + EPSILON * round_up_positive(error_near_y, p), p, m);
     let origin_near_z = origin[kz];
 
+        // float err_far_x = Up(upper[kx]+max_z);
+        // float err_far_y = Up(upper[ky]+max_z);
+    let error_far_x = round_up_positive(bounding_box_upper[kx] + max_z, p);
+    let error_far_y = round_up_positive(bounding_box_upper[ky] + max_y, p);
 
+        // float org_far_x = dn(org[kx]-Up(eps*err_far_x));
+        // float org_far_y = dn(org[ky]-Up(eps*err_far_y));
+        // float org_far_z = org[kz];
+    let mut origin_far_x = round_down_check_sign(origin[kx] + EPSILON * round_up_positive(error_far_x, p), p, m);
+    let mut origin_far_y = round_down_check_sign(origin[ky] + EPSILON * round_up_positive(error_far_y, p), p, m);
+    let origin_far_z = origin[kz];
 
-
-
-
-
-
-
-
-    float err_far_x = Up(upper[kx]+max_z);
-    float err_far_y = Up(upper[ky]+max_z);
-    float org_far_x = dn(org[kx]-Up(eps*err_far_x));
-    float org_far_y = dn(org[ky]-Up(eps*err_far_y));
-    float org_far_z = org[kz];
-    if (dir[kx] < 0.0f) swap(org_near_x,org_far_x);
-    if (dir[ky] < 0.0f) swap(org_near_y,org_far_y);
+        // if (dir[kx] < 0.0f) swap(org_near_x,org_far_x);
+        // if (dir[ky] < 0.0f) swap(org_near_y,org_far_y);
+    if (direction[kx] < 0) {std::mem::swap(&mut origin_near_x, &mut origin_far_x);}
+    if (direction[ky] < 0) {std::mem::swap(&mut origin_near_y, &mut origin_far_y);}
 
     // Calculate corrected reciprocal direction for near and far plane distance calculations. We
     // correct with one additional ulp to also correctly round the subtraction inside the traversal
     // loop. The works only because the ray is only allowed to hit geometry in front of it.
-    float rdir_near_x = Dn(Dn(rdir[kx]));
-    float rdir_near_y = Dn(Dn(rdir[ky]));
-    float rdir_near_z = Dn(Dn(rdir[kz]))
-    float rdir_far_x = Up(Up(rdir[kx]));
-    float rdir_far_y = Up(Up(rdir[ky]));
-    float rdir_far_z = Up(Up(rdir[kz]));
-    float tNearX = (box[nearX] - org_near_x) * rdir_near_x;
-    float tNearY = (box[nearY] - org_near_y) * rdir_near_y;
-    float tNearZ = (box[nearZ] - org_near_z) * rdir_near_z;
-    float tFarX = (box[farX ] - org_far_x ) * rdir_far_x;
-    float tFarY = (box[farY ] - org_far_y ) * rdir_far_y;
-    float tFarZ = (box[farZ ] - org_far_z ) * rdir_far_z;
-    float tNear = max(tNearX,tNearY,tNearZ,rayNear);
-    float tFar = min(tFarX ,tFarY ,tFarZ ,rayFar );
-    bool hit = tNear <= tFar;
+
+        // float rdir_near_x = Dn(Dn(rdir[kx]));
+        // float rdir_near_y = Dn(Dn(rdir[ky]));
+        // float rdir_near_z = Dn(Dn(rdir[kz]));
+    let reciprocal_of_direction_near_x: f32 = round_down_positive(round_down_positive((1.0 / direction[kx]), m), m);
+    let reciprocal_of_direction_near_y: f32 = round_down_positive(round_down_positive((1.0 / direction[ky]), m), m);
+    let reciprocal_of_direction_near_z: f32 = round_down_positive(round_down_positive((1.0 / direction[kz]), m), m);
+
+        // float rdir_far_x = Up(Up(rdir[kx]));
+        // float rdir_far_y = Up(Up(rdir[ky]));
+        // float rdir_far_z = Up(Up(rdir[kz]));
+    let reciprocal_of_direction_far_x: f32 = round_up_positive(round_up_positive((1.0 / direction[kx]), m), m);
+    let reciprocal_of_direction_far_y: f32 = round_up_positive(round_up_positive((1.0 / direction[ky]), m), m);
+    let reciprocal_of_direction_far_z: f32 = round_up_positive(round_up_positive((1.0 / direction[kz]), m), m);
+
+
+
+
+
+        float tNearX = (box[nearX] - org_near_x) * rdir_near_x;
+        float tNearY = (box[nearY] - org_near_y) * rdir_near_y;
+        float tNearZ = (box[nearZ] - org_near_z) * rdir_near_z;
+        float tFarX = (box[farX ] - org_far_x ) * rdir_far_x;
+        float tFarY = (box[farY ] - org_far_y ) * rdir_far_y;
+        float tFarZ = (box[farZ ] - org_far_z ) * rdir_far_z;
+        float tNear = max(tNearX,tNearY,tNearZ,rayNear);
+        float tFar = min(tFarX ,tFarY ,tFarZ ,rayFar );
+        bool hit = tNear <= tFar;
 }
