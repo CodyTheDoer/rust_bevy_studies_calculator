@@ -239,6 +239,7 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
     origin: Vec3,                   // Ray origin
     direction: Vec3,                // Ray Direction
     triangle: (Vec3, Vec3, Vec3),   // Triangle contains coordinates for each vertex in order to wind triangle for testing
+    backface_culling: bool,         // Tracks whether or not bf culling is enabled on this triangle
 ) -> bool {
 
     // calculate dimension where the ray direction is maximal 
@@ -333,6 +334,33 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
         w = (bx_ay - by_ax) as f32;
     }
 
+        // #ifdef BACKFACE_CULLING
+        // if (U<0.0f || V<0.0f || W<0.0f) return;
+        // #else
+        // if ((U<0.0f || V<0.0f || W<0.0f) &&
+        // (U>0.0f || V>0.0f || W>0.0f)) return;
+        // #endif
+    // Perform edge tests. Moving this test before and at the end of the previous conditional gives higher performance.
+    fn perform_edge_tests(u: f32, v: f32, w: f32, backface_culling: bool) -> bool {
+        if backface_culling == true {
+            if (u < 0.0 || v < 0.0 || w < 0.0) {
+                return false;
+            } 
+        } else {
+            if ((u < 0.0 || v < 0.0 || w < 0.0) && (u > 0.0 || v > 0.0 || w > 0.0)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    perform_edge_tests(u, v, w, backface_culling);
+
+    // Calculate the determinate
+    float det = U+V+W;
+    if (det == 0.0f) return;
+
+
 
 
 
@@ -350,17 +378,8 @@ fn watertight_ray_triangle_intersection(// Fed Ray origin, Direction, and triang
 
 
 
-    // Perform edge tests. Moving this test before and at the end of the previous conditional gives higher performance.
-    #ifdef BACKFACE_CULLING
-    if (U<0.0f || V<0.0f || W<0.0f) return;
-    #else
-    if ((U<0.0f || V<0.0f || W<0.0f) &&
-    (U>0.0f || V>0.0f || W>0.0f)) return;
-    #endif
 
-    // Calculate the determinate
-    float det = U+V+W;
-    if (det == 0.0f) return;
+
 
     // Calculate scaled z-coordinates of vertices and use them to calculate the hit distance.
     const float Az = Sz*A[kz];

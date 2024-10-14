@@ -3,6 +3,9 @@ name = "bevy_calculator"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+backface_culling = []
+
 [dependencies]
 bevy = "0.14.2"
 
