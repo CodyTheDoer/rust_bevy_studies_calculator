@@ -12,7 +12,6 @@ use scene_handler_library::{
 }; 
 
 use wrti_library::watertight_ray_triangle_intersection;
-
 use glam::Vec3;
 
 use bevy::input::common_conditions::*;
@@ -49,28 +48,6 @@ fn main() {
         ),
     )
     .run();
-}
-
-fn wrti_test() {
-    let origin = Vec3::new(0.0, 0.0, 0.0);
-    let direction = Vec3::new(0.0, 0.0, 1.0);
-    let triangle = (
-        Vec3::new(1.0, 0.0, 5.0),
-        Vec3::new(-1.0, 1.0, 5.0),
-        Vec3::new(-1.0, -1.0, 5.0),
-    );
-    let backface_culling = false;
-
-    if let Some(hit) = watertight_ray_triangle_intersection(origin, direction, triangle, backface_culling) {
-        // call results for testing as needed
-        println!("Intersection found at t = {}", hit.t());
-        
-        // call all the results
-        let (t, u, v, w) = hit.as_tuple();
-        println!("Hit Breakdown: t: {}, u: {}, v: {}, w: {}", t, u, v, w)
-    } else {
-        println!("No intersection found");
-    }
 }
 
 // Calculator Calls
