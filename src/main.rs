@@ -1,7 +1,8 @@
 /*
 TODO:
-Setup wrti logic in scene_handler_library and integrate the ray tracer.
+Setup wrti logic in scene_handler_library and integrate the ray tracer
 setup button click animations in blender
+figure out how to load multiple gbl files into the scene_library_handler
 figure out how to spawn text on the screen component of the calculator
 */
 
