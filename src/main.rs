@@ -16,7 +16,7 @@ struct Hit {
 }
 
 #[derive(Debug, Component)]
-struct Calculator;
+struct GLB_Component;
 
 #[derive(Debug, Component)]
 struct Player;
@@ -32,7 +32,7 @@ fn main() {
         Startup,
         (   
             example_triangle_ray_test,
-            setup_calculator_glb,
+            setup_glb,
             spawn_view_model,
             spawn_lights,
             spawn_text,
@@ -267,12 +267,12 @@ fn change_fov(input: Res<ButtonInput<KeyCode>>,mut world_model_projection: Query
 
 fn draw_cursor(
     camera_query: Query<(&Camera, &GlobalTransform)>,
-    calculator_query: Query<&GlobalTransform, With<Calculator>>,
+    glb_component_query: Query<&GlobalTransform, With<GLB_Component>>,
     windows: Query<&Window>,
     mut gizmos: Gizmos,
 ) {
     let (camera, camera_transform) = camera_query.single();
-    let calculator = calculator_query.single();
+    let glb_component = glb_component_query.single();
 
     let Some(cursor_position) = windows.single().cursor_position() else {
         return;
@@ -283,25 +283,25 @@ fn draw_cursor(
         return;
     };
 
-    // Calculate if and where the ray is hitting the calculator.
+    // Calculate if and where the ray is hitting the glb_component.
     let Some(distance) =
-        ray.intersect_plane(calculator.translation(), InfinitePlane3d::new(calculator.up()))
+        ray.intersect_plane(glb_component.translation(), InfinitePlane3d::new(glb_component.up()))
     else {
         return;
     };
     let point = ray.get_point(distance);
 
-    // Draw a circle just above the calculator at that position.
-    gizmos.circle(point + calculator.up() * 0.01, calculator.up(), 0.2, Color::WHITE);
+    // Draw a circle just above the glb_component at that position.
+    gizmos.circle(point + glb_component.up() * 0.01, glb_component.up(), 0.2, Color::WHITE);
 }
 
-fn setup_calculator_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("Calculator.glb#Scene0"), // Load the scene from GLB file
+            scene: asset_server.load("cube.glb#Scene0"), // Load the scene from GLB file
             ..default()
         },
-        Calculator,  // Tag it with Ground for raycasting detection
+        GLB_Component,  // Tag it for raycasting detection
     ));
 }
 
