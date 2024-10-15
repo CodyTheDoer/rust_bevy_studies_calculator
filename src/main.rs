@@ -1,18 +1,12 @@
 /*
 TODO:
-Setup wrti logic in scene_handler_library and integrate the ray tracer
 setup button click animations in blender
-figure out how to load multiple gbl files into the scene_library_handler
-figure out how to spawn text on the screen component of the calculator
 */
 
 use scene_handler_library::{
     setup_glb, spawn_view_model, spawn_lights, animate_light_direction,
     draw_cursor, spawn_text, change_fov, adjust_player_camera,
 }; 
-
-use wrti_library::watertight_ray_triangle_intersection;
-use glam::Vec3;
 
 use bevy::input::common_conditions::*;
 use bevy::pbr::DirectionalLightShadowMap;
@@ -25,7 +19,6 @@ fn main() {
     .add_systems(
         Startup,
         (   
-            wrti_test,
             spawn_view_model,
             spawn_lights,
             spawn_text,
