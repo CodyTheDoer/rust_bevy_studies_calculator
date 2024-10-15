@@ -1,65 +1,19 @@
-// /*
-// To Do:
-// Attach input function to camera motion
-//    scroll wheel: zoom in or out 
-// Ray tracing and interface with mesh, need to pick algorithim, looking at Watertight Ray/Triangle Intersection
-// figure out button click animation
-// build screen or figure out how to attach text to existing screen component in demo.
-// */
 
 use std::f32::consts::*;
-use std::fs;
+
 use bevy::input::common_conditions::*;
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
-use bevy::gltf::Gltf;
 use bevy::prelude::*;
-use glam::Vec3; 
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .insert_resource(DirectionalLightShadowMap { size: 4096 })
-        .add_systems(
-            Startup,
-            (
-                init_glb,
-                spawn_view_model,
-                spawn_lights,
-                spawn_text,
-                add,
-                subtract,
-                multiply,
-                divide,
-            ),
-        )
-        .add_systems(
-            Update, 
-            (
-                adjust_player_camera
-                .run_if(input_pressed(MouseButton::Right)),
-                draw_cursor,
-                change_fov,
-                animate_light_direction,
-            ),
-        )
-        .run();
-}
+use glam::Vec3;
 
-#[derive(Debug)]
 struct Hit {
     u: f32,
     v: f32,
     w: f32,
     t: f32,
 }
-
-struct Triangle {
-    vertices: (Vec3, Vec3, Vec3)
-}
-
-#[derive(Debug, Resource)]
-struct TrianglesResource(Vec<Triangle>);
 
 #[derive(Debug, Component)]
 struct Calculator;
@@ -70,224 +24,35 @@ struct Player;
 #[derive(Debug, Component)]
 struct WorldModelCamera;
 
-
-// GUI
-fn init_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Load and spawn the calculator GLB model
-    commands.spawn((
-        SceneBundle {
-            scene: asset_server.load("Calculator.glb#Scene0"), // Load the scene from GLB file
-            ..default()
-        },
-        Calculator,  // Tag it with Calculator for raycasting detection
-    ));
-
-    // Extract triangles from the GLB
-    let triangles = extract_triangles_from_glb("Calculator.glb");
-    commands.insert_resource(triangles);
-}
-
-fn extract_triangles_from_glb(file_path: &str) -> Vec<Triangle> {
-    let mut triangles = Vec::new();
-
-    // Load the GLB file
-    let glb_data = fs::read(file_path).expect("Failed to read GLB file");
-    let gltf = Gltf::from_slice(&glb_data).expect("Failed to parse GLB data");
-
-    // Iterate over the meshes in the GLTF file
-    for mesh in gltf.meshes() {
-        for primative in mesh.primatives() {
-            let reader = primitive.reader(|buffer| {
-                buffer.map(|buffer| &gltf.blob.as_ref().unwrap()[buffer.offset()..])
-            });
-            if let (Some(positions), Some(indices)) = (reader.read_positions(), reader.read_indices()) {
-                let vertices: Vec<Vec3> = positions.map(|pos| Vec3::new(pos[0], pos[1], pos[2])).collect();
-                let indices: Vec<u32> = indices.into_u32().collect();
-
-                // Iterate to create triangles
-                for triangle_indices in indices.chunks(3) {
-                    if triangle_indices.len() == 3 {
-                        let vertex_a = vertices[triangle_indices[0] as usize];
-                        let vertex_b = vertices[triangle_indices[1] as usize];
-                        let vertex_c = vertices[triangle_indices[2] as usize];
-
-                        // Store the triangle
-                        triangles.push(Triangle {
-                            vertices: (vertex_a, vertex_b, vertex_c),
-                        });
-                    }
-                }
-            }
-        }
-    }
-    triangles
-}
-
-fn draw_cursor(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
-    windows: Query<&Window>,
-    triangles: Res<TrianglesResource>,
-    mut gizmos: Gizmos,
-) {
-    let (camera, camera_transform) = camera_query.single();
-    let Some(cursor_position) = windows.single().cursor_position() else {
-        return;
-    };
-
-    // Calculate a ray pointing from the camera into the world based on the cursor's position.
-    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
-        return;
-    };
-
-    let ray_origin = ray.origin;
-    let ray_direction = ray.direction;
-    
-    let mut closest_hit: Option<Hit> = None;
-
-    // Iterate over the triangles and check for intersections
-    for triangle in triangles.0.iter() {
-        if let Some(hit) = watertight_ray_triangle_intersection(
-            ray_origin,
-            ray_direction,
-            triangle.vertices,
-            true, // Adjust backface culling as needed
-        ) {
-            if closest_hit.is_none() || hit.t < closest_hit.as_ref().unwrap().t {
-                closest_hit = Some(hit);
-            }
-        }
-    }
-
-    if let Some(hit) = closest_hit {
-        // Calculate the point of intersection
-        let intersection_point = ray_origin + ray_direction * hit.t;
-        
-        // Draw a circle just above the calculator at that position.
-        gizmos.circle(intersection_point, Vec3::Y.into(), 0.2, Color::WHITE);
-        println!(
-            "Cursor intersection at t = {}, u = {}, v = {}, w = {}",
-            hit.t, hit.u, hit.v, hit.w
-        );
-    } else {
-        println!("No intersection");
-    }
-}
-
-
-fn adjust_player_camera(
-    mut mouse_motion: EventReader<MouseMotion>,
-    mut player: Query<&mut Transform, With<Player>>,
-) {
-    let mut transform = player.single_mut();
-    for motion in mouse_motion.read() {
-        let yaw = -motion.delta.x * 0.003;
-        let pitch = motion.delta.y * 0.002;
-        // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
-        transform.rotate_y(yaw);
-        transform.rotate_local_x(pitch);
-    }
-}
-
-fn change_fov(input: Res<ButtonInput<KeyCode>>,mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>) {
-    let mut projection = world_model_projection.single_mut();
-    let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
-        unreachable!(
-            "The `Projection` component was explicitly built with `Projection::Perspective`"
-        );
-    };
-
-    if input.pressed(KeyCode::ArrowUp) {
-        perspective.fov -= 1.0_f32.to_radians();
-        perspective.fov = perspective.fov.max(20.0_f32.to_radians());
-    }
-    if input.pressed(KeyCode::ArrowDown) {
-        perspective.fov += 1.0_f32.to_radians();
-        perspective.fov = perspective.fov.min(160.0_f32.to_radians());
-    }
-}
-
-fn spawn_view_model(
-    mut commands: Commands,
-) {
-    commands
-        .spawn((
-            Player,
-            SpatialBundle {
-                transform: Transform::from_xyz(0.0, 7.0, 5.0),
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                WorldModelCamera,
-                Camera3dBundle {
-                    projection: PerspectiveProjection {
-                        fov: 90.0_f32.to_radians(),
-                        ..default()
-                    }
-                    .into(),
-                    ..default()
-                },
-            ));
-        });
-}
-
-fn spawn_lights(mut commands: Commands) {
-    commands.spawn((
-        DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
-            cascade_shadow_config: CascadeShadowConfigBuilder {
-                num_cascades: 1,
-                maximum_distance: 1.6,
-                ..default()
-            }
-        .into(),
-        ..default()
-        },
-    ));
-}
-
-fn animate_light_direction(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
-) {
-    for mut transform in &mut query {
-        transform.rotation = Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            time.elapsed_seconds() * PI / 5.0,
-            -FRAC_PI_4,
-        );
-    }
-}
-
-fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                concat!(
-                    "Move the camera with your mouse holding right click to enable movement.\n",
-                    "Press arrow up to decrease the FOV of the world model.\n",
-                    "Press arrow down to increase the FOV of the world model."
-                ),
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
-            ));
-        });
+fn main() {
+    App::new()
+    .add_plugins(DefaultPlugins)
+    .insert_resource(DirectionalLightShadowMap { size: 4096 })
+    .add_systems(
+        Startup,
+        (   
+            example_triangle_ray_test,
+            setup_calculator_glb,
+            spawn_view_model,
+            spawn_lights,
+            spawn_text,
+            add,
+            subtract,
+            multiply,
+            divide,
+        ),
+    )
+    .add_systems(
+        Update, 
+        (
+            adjust_player_camera
+            .run_if(input_pressed(MouseButton::Right)),
+            draw_cursor,
+            change_fov,
+            animate_light_direction,
+        ),
+    )
+    .run();
 }
 
 fn watertight_ray_triangle_intersection(
@@ -431,7 +196,200 @@ fn watertight_ray_triangle_intersection(
     Some(hit)
 }
 
-// Calculator Functionality
+fn example_triangle_ray_test() {
+    // Example usage
+    let origin = Vec3::new(0.0, 0.0, 0.0);
+    let direction = Vec3::new(0.0, 0.0, 1.0);
+    let triangle = (
+        Vec3::new(1.0, 0.0, 5.0),
+        Vec3::new(-1.0, 1.0, 5.0),
+        Vec3::new(-1.0, -1.0, 5.0),
+    );
+    let backface_culling = true;
+
+    if let Some(hit) = watertight_ray_triangle_intersection(origin, direction, triangle, backface_culling) {
+        println!(
+            "Intersection at t = {}, u = {}, v = {}, w = {}",
+            hit.t, hit.u, hit.v, hit.w
+        );
+    } else {
+        println!("No intersection");
+    }
+
+    // Test with reversed triangle winding
+    let reversed_triangle = (
+        Vec3::new(-1.0, -1.0, 5.0),
+        Vec3::new(-1.0, 1.0, 5.0),
+        Vec3::new(1.0, 0.0, 5.0),
+    );
+
+    if let Some(hit) = watertight_ray_triangle_intersection(origin, direction, reversed_triangle, backface_culling) {
+        println!(
+            "Intersection with reversed triangle at t = {}, u = {}, v = {}, w = {}",
+            hit.t, hit.u, hit.v, hit.w
+        );
+    } else {
+        println!("No intersection with reversed triangle");
+    }
+}
+
+fn adjust_player_camera(
+    mut mouse_motion: EventReader<MouseMotion>,
+    mut player: Query<&mut Transform, With<Player>>,
+) {
+    let mut transform = player.single_mut();
+    for motion in mouse_motion.read() {
+        let yaw = -motion.delta.x * 0.003;
+        let pitch = motion.delta.y * 0.002;
+        // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
+        transform.rotate_y(yaw);
+        transform.rotate_local_x(pitch);
+    }
+}
+
+fn change_fov(input: Res<ButtonInput<KeyCode>>,mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>) {
+    let mut projection = world_model_projection.single_mut();
+    let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
+        unreachable!(
+            "The `Projection` component was explicitly built with `Projection::Perspective`"
+        );
+    };
+
+    if input.pressed(KeyCode::ArrowUp) {
+        perspective.fov -= 1.0_f32.to_radians();
+        perspective.fov = perspective.fov.max(20.0_f32.to_radians());
+    }
+    if input.pressed(KeyCode::ArrowDown) {
+        perspective.fov += 1.0_f32.to_radians();
+        perspective.fov = perspective.fov.min(160.0_f32.to_radians());
+    }
+}
+
+fn draw_cursor(
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    calculator_query: Query<&GlobalTransform, With<Calculator>>,
+    windows: Query<&Window>,
+    mut gizmos: Gizmos,
+) {
+    let (camera, camera_transform) = camera_query.single();
+    let calculator = calculator_query.single();
+
+    let Some(cursor_position) = windows.single().cursor_position() else {
+        return;
+    };
+
+    // Calculate a ray pointing from the camera into the world based on the cursor's position.
+    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+        return;
+    };
+
+    // Calculate if and where the ray is hitting the calculator.
+    let Some(distance) =
+        ray.intersect_plane(calculator.translation(), InfinitePlane3d::new(calculator.up()))
+    else {
+        return;
+    };
+    let point = ray.get_point(distance);
+
+    // Draw a circle just above the calculator at that position.
+    gizmos.circle(point + calculator.up() * 0.01, calculator.up(), 0.2, Color::WHITE);
+}
+
+fn setup_calculator_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        SceneBundle {
+            scene: asset_server.load("Calculator.glb#Scene0"), // Load the scene from GLB file
+            ..default()
+        },
+        Calculator,  // Tag it with Ground for raycasting detection
+    ));
+}
+
+fn spawn_view_model(
+    mut commands: Commands,
+) {
+    commands
+        .spawn((
+            Player,
+            SpatialBundle {
+                transform: Transform::from_xyz(0.0, 7.0, 5.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                WorldModelCamera,
+                Camera3dBundle {
+                    projection: PerspectiveProjection {
+                        fov: 90.0_f32.to_radians(),
+                        ..default()
+                    }
+                    .into(),
+                    ..default()
+                },
+            ));
+        });
+}
+
+fn spawn_lights(mut commands: Commands) {
+    commands.spawn((
+        DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                shadows_enabled: true,
+                ..default()
+            },
+            cascade_shadow_config: CascadeShadowConfigBuilder {
+                num_cascades: 1,
+                maximum_distance: 1.6,
+                ..default()
+            }
+        .into(),
+        ..default()
+        },
+    ));
+}
+
+fn animate_light_direction(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, With<DirectionalLight>>,
+) {
+    for mut transform in &mut query {
+        transform.rotation = Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            time.elapsed_seconds() * PI / 5.0,
+            -FRAC_PI_4,
+        );
+    }
+}
+
+fn spawn_text(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                concat!(
+                    "Move the camera with your mouse holding right click to enable movement.\n",
+                    "Press arrow up to decrease the FOV of the world model.\n",
+                    "Press arrow down to increase the FOV of the world model."
+                ),
+                TextStyle {
+                    font_size: 25.0,
+                    ..default()
+                },
+            ));
+        });
+}
+
+// Calculator Calls
 fn add() {
     let result = bevy_calculator::add(24, 49);
     println!("add result: {:?}", result)
