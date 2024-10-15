@@ -16,7 +16,7 @@ struct Hit {
 }
 
 #[derive(Debug, Component)]
-struct GLB_Component;
+struct GlbComponent;
 
 #[derive(Debug, Component)]
 struct Player;
@@ -267,7 +267,7 @@ fn change_fov(input: Res<ButtonInput<KeyCode>>,mut world_model_projection: Query
 
 fn draw_cursor(
     camera_query: Query<(&Camera, &GlobalTransform)>,
-    glb_component_query: Query<&GlobalTransform, With<GLB_Component>>,
+    glb_component_query: Query<&GlobalTransform, With<GlbComponent>>,
     windows: Query<&Window>,
     mut gizmos: Gizmos,
 ) {
@@ -301,7 +301,7 @@ fn setup_glb(mut commands: Commands, asset_server: Res<AssetServer>) {
             scene: asset_server.load("cube.glb#Scene0"), // Load the scene from GLB file
             ..default()
         },
-        GLB_Component,  // Tag it for raycasting detection
+        GlbComponent,  // Tag it for raycasting detection
     ));
 }
 
